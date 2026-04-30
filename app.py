@@ -105,11 +105,14 @@ def profile():
     return render_template('profile.html', user=user)
 
 
-@app.route('/tickets',methods=['GET'])
+@app.route('/tickets', methods=['GET'])
 def tickets_page():
     if 'user_id' not in session:
         return redirect(url_for('login_page'))
-    tickets = Ticket.query.filter_by(owner_id=session['user_id']).all()
+    if session.get('role') == 'MANAGER':
+        tickets = Ticket.query.all()
+    else:
+        tickets = Ticket.query.filter_by(owner_id=session['user_id']).all()
     return render_template('tickets.html', tickets=tickets)
 
 
