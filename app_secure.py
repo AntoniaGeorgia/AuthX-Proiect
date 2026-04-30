@@ -18,44 +18,44 @@ db = SQLAlchemy(app)
 login_attempts = {}
 
 class User(db.Model):
-    __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(20), default='ANALYST')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    locked = db.Column(db.Boolean, default=False)
+    __tablename__='users'
+    id=db.Column(db.Integer, primary_key=True)
+    email=db.Column(db.String(120), unique=True, nullable=False)
+    password_hash=db.Column(db.String(256), nullable=False)
+    role=db.Column(db.String(20), default='ANALYST')
+    created_at=db.Column(db.DateTime, default=datetime.utcnow)
+    locked=db.Column(db.Boolean, default=False)
 
 class Ticket(db.Model):
-    __tablename__ = 'tickets'
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    severity = db.Column(db.String(10), default='LOW')
-    status = db.Column(db.String(20), default='OPEN')
-    owner_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __tablename__='tickets'
+    id=db.Column(db.Integer,primary_key=True)
+    title=db.Column(db.String(200),nullable=False)
+    description=db.Column(db.Text)
+    severity= db.Column(db.String(10),default='LOW')
+    status =db.Column(db.String(20),default='OPEN')
+    owner_id = db.Column(db.Integer,db.ForeignKey('users.id'))
+    created_at = db.Column(db.DateTime,default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime,default=datetime.utcnow)
 
 class AuditLog(db.Model):
-    __tablename__ = 'audit_logs'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    action = db.Column(db.String(50))
-    resource = db.Column(db.String(50))
+    __tablename__ ='audit_logs'
+    id=db.Column(db.Integer,primary_key=True)
+    user_id=db.Column(db.Integer,db.ForeignKey('users.id'),nullable=True)
+    action=db.Column(db.String(50))
+    resource =db.Column(db.String(50))
     resource_id = db.Column(db.String(50))
     ip_address = db.Column(db.String(50))
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime,default=datetime.utcnow)
 
 class PasswordResetToken(db.Model):
     __tablename__ = 'reset_tokens'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    token = db.Column(db.String(64), unique=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    token =db.Column(db.String(64),unique=True)
+    created_at = db.Column(db.DateTime,default=datetime.utcnow)
     used = db.Column(db.Boolean, default=False)
 
-def log_action(user_id, action, resource, resource_id=''):
+def log_action(user_id, action, resource,resource_id=''):
     log = AuditLog(
         user_id=user_id,
         action=action,
@@ -70,7 +70,7 @@ def check_rate_limit(ip, max_attempts=5, window=300):
     now = time.time()
     if ip not in login_attempts:
         login_attempts[ip] = []
-    login_attempts[ip] = [t for t in login_attempts[ip] if now - t < window]
+    login_attempts[ip] =[t for t in login_attempts[ip] if now - t < window]
     if len(login_attempts[ip]) >= max_attempts:
         return False
     login_attempts[ip].append(now)
@@ -80,7 +80,7 @@ def validate_password(password):
     if len(password) < 8:
         return False, "Parola trebuie sa aiba minim 8 caractere"
     if not any(c.isupper() for c in password):
-        return False, "Parola trebuie sa contina cel putin o litera mare"
+        return False, "Parola trebuie sa contina celputin o litera mare"
     if not any(c.isdigit() for c in password):
         return False, "Parola trebuie sa contina cel putin o cifra"
     return True, ""
@@ -91,38 +91,38 @@ def index():
         return redirect(url_for('profile'))
     return redirect(url_for('login_page'))
 
-@app.route('/login', methods=['GET'])
+@app.route('/login',methods=['GET'])
 def login_page():
     return render_template('login.html')
 
-@app.route('/register', methods=['GET'])
+@app.route('/register',methods=['GET'])
 def register_page():
     return render_template('register.html')
 
-@app.route('/forgot-password', methods=['GET'])
+@app.route('/forgot-password',methods=['GET'])
 def forgot_password_page():
     return render_template('forgot_password.html')
 
-@app.route('/reset-password', methods=['GET'])
+@app.route('/reset-password',methods=['GET'])
 def reset_password_page():
     token = request.args.get('token', '')
     return render_template('reset_password.html', token=token)
 
-@app.route('/profile', methods=['GET'])
+@app.route('/profile',methods=['GET'])
 def profile():
     if 'user_id' not in session:
         return redirect(url_for('login_page'))
     user = User.query.get(session['user_id'])
     return render_template('profile.html', user=user)
 
-@app.route('/tickets', methods=['GET'])
+@app.route('/tickets',methods=['GET'])
 def tickets_page():
     if 'user_id' not in session:
         return redirect(url_for('login_page'))
     tickets = Ticket.query.filter_by(owner_id=session['user_id']).all()
     return render_template('tickets.html', tickets=tickets)
 
-@app.route('/audit', methods=['GET'])
+@app.route('/audit',methods=['GET'])
 def audit_page():
     if 'user_id' not in session:
         return redirect(url_for('login_page'))
@@ -132,7 +132,7 @@ def audit_page():
     logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(50).all()
     return render_template('audit.html', logs=logs)
 
-@app.route('/logout', methods=['GET'])
+@app.route('/logout',methods=['GET'])
 def logout_page():
     if 'user_id' in session:
         log_action(session['user_id'], 'LOGOUT', 'auth')
@@ -140,7 +140,7 @@ def logout_page():
     flash('Ai fost delogat.', 'success')
     return redirect(url_for('login_page'))
 
-@app.route('/register', methods=['POST'])
+@app.route('/register',methods=['POST'])
 def register():
     if request.is_json:
         data = request.get_json()
@@ -171,7 +171,7 @@ def register():
     flash('Cont creat! Autentifica-te.', 'success')
     return redirect(url_for('login_page'))
 
-@app.route('/login', methods=['POST'])
+@app.route('/login',methods=['POST'])
 def login():
     ip = request.remote_addr
     if not check_rate_limit(ip):
