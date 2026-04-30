@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>AuthX - {% block title %}{% endblock %}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
+        nav { background: #333; padding: 10px 20px; color: white; }
+        nav a { color: #ccc; text-decoration: none; margin-right: 15px; }
+        nav a:hover { color: white; }
+        .container { max-width: 450px; margin: 40px auto; padding: 0 15px; }
+        .container.wide { max-width: 800px; }
+        .box { background: white; border: 1px solid #ddd; padding: 25px; border-radius: 4px; }
+        h2 { margin-bottom: 20px; font-size: 1.2rem; color: #333; }
+        label { display: block; margin-bottom: 4px; font-size: 0.9rem; }
+        input, select, textarea { width: 100%; padding: 8px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 3px; font-size: 0.9rem; box-sizing: border-box; }
+        button { background: #333; color: white; padding: 9px 20px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.9rem; }
+        button:hover { background: #555; }
+        .msg-error { background: #fdd; border: 1px solid #f99; padding: 8px 12px; margin-bottom: 15px; border-radius: 3px; font-size: 0.9rem; color: #900; }
+        .msg-success { background: #dfd; border: 1px solid #9d9; padding: 8px 12px; margin-bottom: 15px; border-radius: 3px; font-size: 0.9rem; color: #060; }
+        .link { margin-top: 12px; font-size: 0.85rem; }
+        .link a { color: #333; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th { background: #333; color: white; padding: 8px 10px; text-align: left; }
+        td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+<nav>
+    <strong>AuthX</strong> &nbsp;
+    {% if session.get('user_id') %}
+        <a href="/profile">Profil</a>
+        <a href="/tickets">Tickets</a>
+        {% if session.get('role') == 'MANAGER' %}<a href="/audit">Audit</a>{% endif %}
+        <a href="/logout">Logout</a>
+    {% else %}
+        <a href="/login">Login</a>
+        <a href="/register">Register</a>
+    {% endif %}
+</nav>
+<div class="container {% block container_class %}{% endblock %}">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="msg-{{ category }}" style="margin-top:15px;">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+</div>
+</body>
+</html>

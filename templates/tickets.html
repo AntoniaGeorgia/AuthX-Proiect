@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Tickets{% endblock %}
+{% block container_class %}wide{% endblock %}
+{% block content %}
+<div class="box" style="margin-top:30px; margin-bottom:20px;">
+    <h2>Ticket nou</h2>
+    <form method="POST" action="/tickets">
+        <label>Titlu</label>
+        <input type="text" name="title" required>
+        <label>Descriere</label>
+        <textarea name="description" rows="3"></textarea>
+        <label>Severitate</label>
+        <select name="severity">
+            <option value="LOW">Low</option>
+            <option value="MED">Medium</option>
+            <option value="HIGH">High</option>
+        </select>
+        <button type="submit">Adauga</button>
+    </form>
+</div>
+<div class="box">
+    <h2>Tickets</h2>
+    {% if tickets %}
+    <table>
+        <thead><tr><th>Titlu</th><th>Severitate</th><th>Status</th><th>Data</th></tr></thead>
+        <tbody>
+        {% for t in tickets %}
+        <tr>
+            <td>{{ t.title }}</td>
+            <td>{{ t.severity }}</td>
+            <td>{{ t.status }}</td>
+            <td>{{ t.created_at.strftime('%d.%m.%Y') if t.created_at else 'N/A' }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#888;">Nu exista tickets.</p>
+    {% endif %}
+</div>
+{% endblock %}

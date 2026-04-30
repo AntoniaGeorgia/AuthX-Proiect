@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+{% block content %}
+<div class="box" style="margin-top:40px;">
+    <h2>Inregistrare</h2>
+    <form method="POST" action="/register">
+        <label>Email</label>
+        <input type="email" name="email" required>
+        <label>Parola</label>
+        <input type="password" name="password" required>
+        <label>Rol</label>
+        <select name="role">
+            <option value="ANALYST">Analyst</option>
+            <option value="MANAGER">Manager</option>
+        </select>
+        <button type="submit">Creeaza cont</button>
+    </form>
+    <div class="link"><a href="/login">Am deja cont</a></div>
+</div>
+{% endblock %}

@@ -1,28 +1,21 @@
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, timedelta
-import bcrypt
-import secrets
-import time
+from datetime import datetime
+import hashlib
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(32)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://antonia:antonia123@localhost/authxdb_secure'
+app.secret_key = "secret123"
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://antonia:antonia123@localhost/authxdb'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['SESSION_COOKIE_SECURE'] = False
-app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
 db = SQLAlchemy(app)
-login_attempts = {}
 
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    role = db.Column(db.String(20), default='ANALYST')
+    role = db.Column(db.String(20), default='USER')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     locked = db.Column(db.Boolean, default=False)
 
@@ -51,7 +44,7 @@ class PasswordResetToken(db.Model):
     __tablename__ = 'reset_tokens'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    token = db.Column(db.String(64), unique=True)
+    token = db.Column(db.String(64))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     used = db.Column(db.Boolean, default=False)
 
@@ -66,24 +59,7 @@ def log_action(user_id, action, resource, resource_id=''):
     db.session.add(log)
     db.session.commit()
 
-def check_rate_limit(ip, max_attempts=5, window=300):
-    now = time.time()
-    if ip not in login_attempts:
-        login_attempts[ip] = []
-    login_attempts[ip] = [t for t in login_attempts[ip] if now - t < window]
-    if len(login_attempts[ip]) >= max_attempts:
-        return False
-    login_attempts[ip].append(now)
-    return True
-
-def validate_password(password):
-    if len(password) < 8:
-        return False, "Parola trebuie sa aiba minim 8 caractere"
-    if not any(c.isupper() for c in password):
-        return False, "Parola trebuie sa contina cel putin o litera mare"
-    if not any(c.isdigit() for c in password):
-        return False, "Parola trebuie sa contina cel putin o cifra"
-    return True, ""
+# ─── GET ROUTES (HTML) ────────────────────────────────────────────
 
 @app.route('/')
 def index():
@@ -137,8 +113,10 @@ def logout_page():
     if 'user_id' in session:
         log_action(session['user_id'], 'LOGOUT', 'auth')
     session.clear()
-    flash('Ai fost delogat.', 'success')
+    flash('Ai fost delogat cu succes.', 'success')
     return redirect(url_for('login_page'))
+
+# ─── POST ROUTES (API) ────────────────────────────────────────────
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -146,60 +124,46 @@ def register():
         data = request.get_json()
     else:
         data = request.form
-    email = data.get('email', '').strip().lower()
-    password = data.get('password', '')
+    email = data.get('email')
+    password = data.get('password')
     role = data.get('role', 'ANALYST')
-    valid, msg = validate_password(password)
-    if not valid:
-        if request.is_json:
-            return jsonify({'error': msg}), 400
-        flash(msg, 'error')
-        return redirect(url_for('register_page'))
+    password_hash = hashlib.md5(password.encode()).hexdigest()
     existing = User.query.filter_by(email=email).first()
     if existing:
         if request.is_json:
             return jsonify({'error': 'Email already exists'}), 400
-        flash('Email-ul exista deja', 'error')
+        flash('Email-ul există deja!', 'error')
         return redirect(url_for('register_page'))
-    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     user = User(email=email, password_hash=password_hash, role=role)
     db.session.add(user)
     db.session.commit()
     log_action(user.id, 'REGISTER', 'auth')
     if request.is_json:
         return jsonify({'message': 'User created successfully'}), 201
-    flash('Cont creat! Autentifica-te.', 'success')
+    flash('Cont creat cu succes! Autentifică-te.', 'success')
     return redirect(url_for('login_page'))
 
 @app.route('/login', methods=['POST'])
 def login():
-    ip = request.remote_addr
-    if not check_rate_limit(ip):
-        if request.is_json:
-            return jsonify({'error': 'Too many attempts. Try again later.'}), 429
-        flash('Prea multe incercari. Asteptati 5 minute.', 'error')
-        return redirect(url_for('login_page'))
     if request.is_json:
         data = request.get_json()
     else:
         data = request.form
-    email = data.get('email', '').strip().lower()
-    password = data.get('password', '')
+    email = data.get('email')
+    password = data.get('password')
     user = User.query.filter_by(email=email).first()
-    if not user or not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+    if not user:
+        if request.is_json:
+            return jsonify({'error': 'User not found'}), 404
+        flash('User not found', 'error')
+        return redirect(url_for('login_page'))
+    password_hash = hashlib.md5(password.encode()).hexdigest()
+    if user.password_hash != password_hash:
         log_action(None, 'LOGIN_FAIL', 'auth')
-        time.sleep(0.5)
         if request.is_json:
-            return jsonify({'error': 'Invalid credentials'}), 401
-        flash('Invalid credentials', 'error')
+            return jsonify({'error': 'Wrong password'}), 401
+        flash('Wrong password', 'error')
         return redirect(url_for('login_page'))
-    if user.locked:
-        if request.is_json:
-            return jsonify({'error': 'Account locked'}), 403
-        flash('Contul este blocat.', 'error')
-        return redirect(url_for('login_page'))
-    session.clear()
-    session.permanent = True
     session['user_id'] = user.id
     session['email'] = user.email
     session['role'] = user.role
@@ -214,22 +178,20 @@ def forgot_password():
         data = request.get_json()
     else:
         data = request.form
-    email = data.get('email', '').strip().lower()
+    email = data.get('email')
     user = User.query.filter_by(email=email).first()
     if not user:
         if request.is_json:
-            return jsonify({'message': 'If email exists, a reset link was sent'}), 200
-        flash('Daca emailul exista, vei primi instructiuni de resetare.', 'success')
+            return jsonify({'error': 'Email not found'}), 404
+        flash('Email-ul nu există.', 'error')
         return redirect(url_for('forgot_password_page'))
-    token = secrets.token_urlsafe(32)
-    PasswordResetToken.query.filter_by(user_id=user.id, used=False).update({'used': True})
-    db.session.commit()
+    token = str(user.id) + "reset"
     reset_token = PasswordResetToken(user_id=user.id, token=token)
     db.session.add(reset_token)
     db.session.commit()
     if request.is_json:
-        return jsonify({'message': 'If email exists, a reset link was sent', 'token': token}), 200
-    flash(f'Token: {token}', 'success')
+        return jsonify({'message': 'Reset token generated', 'token': token}), 200
+    flash(f'Token de resetare: {token} (în producție se trimite pe email)', 'success')
     return redirect(url_for('reset_password_page', token=token))
 
 @app.route('/reset-password', methods=['POST'])
@@ -238,35 +200,21 @@ def reset_password():
         data = request.get_json()
     else:
         data = request.form
-    token = data.get('token', '')
-    new_password = data.get('new_password', '')
-    reset = PasswordResetToken.query.filter_by(token=token, used=False).first()
+    token = data.get('token')
+    new_password = data.get('new_password')
+    reset = PasswordResetToken.query.filter_by(token=token).first()
     if not reset:
         if request.is_json:
-            return jsonify({'error': 'Invalid or expired token'}), 400
-        flash('Token invalid sau expirat.', 'error')
+            return jsonify({'error': 'Invalid token'}), 400
+        flash('Token invalid!', 'error')
         return redirect(url_for('login_page'))
-    if datetime.utcnow() - reset.created_at > timedelta(minutes=15):
-        reset.used = True
-        db.session.commit()
-        if request.is_json:
-            return jsonify({'error': 'Token expired'}), 400
-        flash('Token expirat.', 'error')
-        return redirect(url_for('login_page'))
-    valid, msg = validate_password(new_password)
-    if not valid:
-        if request.is_json:
-            return jsonify({'error': msg}), 400
-        flash(msg, 'error')
-        return redirect(url_for('reset_password_page', token=token))
     user = User.query.get(reset.user_id)
-    user.password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
-    reset.used = True
+    user.password_hash = hashlib.md5(new_password.encode()).hexdigest()
     db.session.commit()
     log_action(user.id, 'RESET_PASSWORD', 'auth')
     if request.is_json:
         return jsonify({'message': 'Password reset successful'}), 200
-    flash('Parola resetata cu succes!', 'success')
+    flash('Parola a fost resetată cu succes!', 'success')
     return redirect(url_for('login_page'))
 
 @app.route('/tickets', methods=['POST'])
@@ -288,10 +236,10 @@ def create_ticket():
     log_action(session['user_id'], 'CREATE_TICKET', 'ticket', ticket.id)
     if request.is_json:
         return jsonify({'message': 'Ticket created', 'id': ticket.id}), 201
-    flash('Ticket creat!', 'success')
+    flash('Ticket creat cu succes!', 'success')
     return redirect(url_for('tickets_page'))
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=True, host='0.0.0.0', port=5000)

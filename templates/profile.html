@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Profil{% endblock %}
+{% block container_class %}wide{% endblock %}
+{% block content %}
+<div class="box" style="margin-top:30px;">
+    <h2>Profilul meu</h2>
+    <table>
+        <tr><td><b>Email</b></td><td>{{ user.email }}</td></tr>
+        <tr><td><b>Rol</b></td><td>{{ user.role }}</td></tr>
+        <tr><td><b>Creat la</b></td><td>{{ user.created_at.strftime('%d.%m.%Y %H:%M') if user.created_at else 'N/A' }}</td></tr>
+        <tr><td><b>Status</b></td><td>{{ 'Blocat' if user.locked else 'Activ' }}</td></tr>
+    </table>
+    <br>
+    <a href="/tickets"><button>Vezi tickets</button></a>
+</div>
+{% endblock %}
